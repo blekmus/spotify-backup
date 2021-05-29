@@ -1,6 +1,7 @@
 # Spotify Backup Script
 
-The script backups your spotify data. This includes;
+Save your spotify data into csv files. This includes;
+
 - Liked tracks
 - Created playlists
 - Followed artists
