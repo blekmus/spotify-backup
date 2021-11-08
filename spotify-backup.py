@@ -86,7 +86,7 @@ class SpotifyAPI:
                 "redirect_uri": f"http://127.0.0.1:{SpotifyAPI._SERVER_PORT}/redirect",
             }
         )
-        logging.info(f"Authorizing... (click if browser doesn't open)\n{url}\n")
+        logging.info(f"Authorizing... (click if browser doesn't open)\n{url}")
         webbrowser.open(url)
 
         # Start a simple, local HTTP server to listen for the authorization token... (i.e. a hack).
@@ -147,6 +147,7 @@ class SpotifyAPI:
         def __init__(self, access_token):
             self.access_token = access_token
 
+
 # simple recursive y/n input with default
 def yesno(question, default=None):
     ans = input(question).strip().lower()
@@ -182,6 +183,41 @@ def timematter(x):
     else:
         out = f'{s.days}d {s.seconds//(60*60)}h {int(s.seconds/60 - (s.seconds//3600)*60)}m {s.seconds - (s.seconds//60)*60}s'
     return out
+
+# save playlists to csv
+def save_playlist(filename, playlist_list):
+    file = open(filename, 'w')
+
+    # init sheet rows
+    fieldnames = [
+        'ID',
+        'Spotify URI',
+        'Name',
+        'Description',
+        'Tracks',
+        'URL',
+    ]
+
+    # init csv writer
+    writer = csv.DictWriter(file, fieldnames=fieldnames)
+    writer.writeheader()
+
+    # loop through tracks and add them as rows
+    for playlist in playlist_list:
+        try:
+            writer.writerow({
+                'ID': playlist['id'],
+                'Spotify URI': playlist['uri'],
+                'Name': playlist['name'],
+                'Description': playlist['description'],
+                'Tracks': playlist['tracks']['total'],
+                'URL': playlist['external_urls']['spotify'],
+            })
+        except KeyError:
+            logging.error(f"Failed to load playlist {playlist['name']}")
+            continue
+
+    file.close()
 
 # save tracks to csv
 def save_track(filename, track_list):
@@ -420,12 +456,13 @@ logging.info(f"Logged in as {me['display_name']} ({me['id']})")
 
 
 # for playlists not owned by user
-save_foreign_playlists = yesno('Save playlists not owned by you? [y/N]: ', 'n')
+save_foreign_playlists = yesno('Save tracks of playlists not owned by you (foreign)? [y/N]: ', 'n')
 
 
 # create needed dirs
 logging.info('Creating needed directories')
 os.makedirs('./done/Music/Playlists', exist_ok=True)
+os.makedirs('./done/Music/Playlists/User', exist_ok=True)
 os.makedirs('./done/Podcasts', exist_ok=True)
 
 
@@ -444,28 +481,44 @@ playlist_data = spotify.list(f"users/{me['id']}/playlists", {'limit': 50})
 logging.info("Loading user's playlists...")
 user_playlists = [playlist for playlist in playlist_data if playlist['owner']['id'] == me['id']]
 logging.info(f"Found {len(user_playlists)} user's playlists")
+save_playlist('done/Music/Playlists/UserPlaylists.csv', user_playlists)
+
+
+# get user's foreign playlist data
+logging.info("Loading user's foreign playlists...")
+foreign_playlists = [playlist for playlist in playlist_data if playlist['owner']['id'] != me['id']]
+logging.info(f"Found {len(foreign_playlists)} foreign playlists")
+save_playlist('done/Music/Playlists/ForeignPlaylists.csv', foreign_playlists)
+
 
 # saving user's playlist songs
 for playlist in user_playlists:
-    logging.info(f"Loading user playlist: {playlist['name']} ({playlist['tracks']['total']} songs)")
+    if playlist['name'] == '':
+        name = 'unnamed'
+    else:
+        name = playlist['name']
+
+    logging.info(f"Loading user playlist: {name} ({playlist['tracks']['total']} songs)")
     playlist_tracks = spotify.list(playlist['tracks']['href'], {'limit': 100})
-    logging.info(f"Saving {playlist['name']}'s songs")
-    save_track(f"done/Music/Playlists/{playlist['name']} - {playlist['id']}.csv", playlist_tracks)
+    logging.info(f"Saving {name}'s songs")
+    save_track(f"done/Music/Playlists/User/{name} - {playlist['id']}.csv", playlist_tracks)
 
 
-# check whether to save foreign playlists
+# check whether to save foreign playlist tracks
 if save_foreign_playlists:
-    # get foreign playlist data
-    logging.info("Loading foreign playlists...")
-    foreign_playlists = [playlist for playlist in playlist_data if playlist['owner']['id'] != me['id']]
-    logging.info(f"Found {len(foreign_playlists)} foreign playlists")
+    os.makedirs('./done/Music/Playlists/Foreign', exist_ok=True)
 
     # saving foreign playlist songs
     for playlist in foreign_playlists:
-        logging.info(f"Loading foreign playlist: {playlist['name']} ({playlist['tracks']['total']} songs)")
+        if playlist['name'] == '':
+            name = 'unnamed'
+        else:
+            name = playlist['name']
+
+        logging.info(f"Loading foreign playlist: {name} ({playlist['tracks']['total']} songs)")
         playlist_tracks = spotify.list(playlist['tracks']['href'], {'limit': 100})
-        logging.info(f"Saving {playlist['name']}'s songs")
-        save_track(f"done/Music/Playlists/{playlist['name']} - {playlist['id']}.csv", playlist_tracks)
+        logging.info(f"Saving {name}'s songs")
+        save_track(f"done/Music/Playlists/Foreign/{name} - {playlist['id']}.csv", playlist_tracks)
 
 
 # following artists data
