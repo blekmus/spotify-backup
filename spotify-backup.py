@@ -20,8 +20,9 @@ import certifi
 import ssl
 
 
-logging.basicConfig(level=20, datefmt="%I:%M:%S", format="[%(asctime)s] %(message)s")
+client_id = "fc84b0b659d64f568f72d0d6009ad965"
 
+logging.basicConfig(level=20, datefmt="%I:%M:%S", format="[%(asctime)s] %(message)s")
 
 class SpotifyAPI:
     # Requires an OAuth token.
@@ -40,7 +41,7 @@ class SpotifyAPI:
         for _ in range(tries):
             try:
                 req = urllib.request.Request(url)
-                req.add_header("Authorization", "Bearer " + self._auth)            
+                req.add_header("Authorization", "Bearer " + self._auth)
                 context = ssl.create_default_context(cafile=certifi.where())
                 res = urllib.request.urlopen(req, context=context)
                 reader = codecs.getreader("utf-8")
@@ -233,7 +234,7 @@ def save_track(filename, track_list):
         'Album ID',
         'Track Name',
         'Album Name',
-        'Artist Name(s)',
+        'Artists',
         'Release Date',
         'Duration (ms)',
         'Explicity',
@@ -258,7 +259,7 @@ def save_track(filename, track_list):
                 'Track Name': track['track']['name'],
                 'Album Name': track['track']['album']['name'],
                 'Album Tracks': track['track']['album']['total_tracks'],
-                'Artist Name(s)': ", ".join([artist['name'] for artist in track['track']['artists']]),
+                'Artists': ", ".join([artist['name'] for artist in track['track']['artists']]),
                 'Release Date': track['track']['album']['release_date'],
                 'Duration (ms)': timematter(int(track['track']['duration_ms']) / 1000),
                 'Explicity': track['track']['explicit'],
@@ -318,7 +319,7 @@ def save_album(filename, album_list):
         'ID',
         'Name',
         'Tracks',
-        'Artist Name(s)',
+        'Artists',
         'Release Date',
         'Label',
         'Type',
@@ -338,7 +339,7 @@ def save_album(filename, album_list):
                 'ID': album['album']['id'],
                 'Name': album['album']['name'],
                 'Tracks': album['album']['total_tracks'],
-                'Artist Name(s)': ", ".join([album['name'] for album in album['album']['artists']]),
+                'Artists': ", ".join([album['name'] for album in album['album']['artists']]),
                 'Release Date': album['album']['release_date'],
                 'Label': album['album']['label'],
                 'Type': album['album']['album_type'],
@@ -445,10 +446,10 @@ def save_episode(filename, episode_list):
 
 # log into the Spotify API.
 spotify = SpotifyAPI.authorize(
-    # id from spotify client app created at
+    # client_id from a spotify client app created in
     # https://developer.spotify.com/dashboard/applications
-    # it has http://127.0.0.1:43019/redirect as the redirect URI
-    client_id="fc84b0b659d64f568f72d0d6009ad965",
+    # it has http://127.0.0.1:43019/redirect set as the redirect URI
+    client_id=client_id,
     scope="playlist-read-private playlist-read-collaborative user-library-read user-follow-read",
 )
 
