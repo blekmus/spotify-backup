@@ -21,6 +21,13 @@ from dotenv import load_dotenv
 from b2sdk.v2 import *
 import requests
 import base64
+import argparse
+
+
+parser = argparse.ArgumentParser()
+parser.add_argument('-y', '--always-yes', action='store_true', help='Always answer yes to prompts')
+args = parser.parse_args()
+always_yes = args.always_yes
 
 load_dotenv()
 
@@ -472,7 +479,6 @@ def save_episode(filename, episode_list):
 
 # log into the Spotify API.
 if (os.getenv('SPOTIFY_REFRESH_TOKEN')):
-    print('something')
     spotify = SpotifyAPI.generate(os.getenv('SPOTIFY_CLIENT_ID'), os.getenv('SPOTIFY_CLIENT_SECRET'), os.getenv('SPOTIFY_REFRESH_TOKEN'))
 else:
     spotify = SpotifyAPI.authorize(
@@ -486,7 +492,10 @@ me = spotify.get('me')
 logging.info(f"Logged in as {me['display_name']} ({me['id']})")
 
 # for playlists not owned by user
-save_foreign_playlists = yesno('Save tracks of playlists not owned by you (foreign)? [y/N]: ', 'n')
+if not always_yes:
+    save_foreign_playlists = yesno('Save tracks of playlists not owned by you (foreign)? [y/N]: ', 'n')
+else:
+    save_foreign_playlists = True
 
 # create needed dirs
 logging.info('Creating needed directories')
@@ -569,7 +578,10 @@ save_episode(f'{save_loc}/Podcasts/Episodes.csv', saved_episode_data)
 
 
 # upload files to b2
-b2_upload = yesno('Upload files to Backblaze? [Y/n]: ', 'y')
+if not always_yes:
+    b2_upload = yesno('Upload files to Backblaze? [Y/n]: ', 'y')
+else:
+    b2_upload = True
 
 if b2_upload:
     keyID = os.environ['B2_KEY_ID']
