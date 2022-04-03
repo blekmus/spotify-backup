@@ -1,6 +1,6 @@
 # Spotify Backup Script
 
-Save all of your spotify data into CSV files. From liked tracks to the artists you follow.
+Saves spotify data into csv files. Optionally upload to Backblaze B2 bucket.
 
 ## File Structure
 ~~~

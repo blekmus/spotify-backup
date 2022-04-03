@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import argparse
 import codecs
 import http.client
 import http.server
@@ -18,11 +17,57 @@ import webbrowser
 from datetime import timedelta
 import certifi
 import ssl
+from dotenv import load_dotenv
+from b2sdk.v2 import *
+import requests
+
+load_dotenv()
+
+# filename with yyyy-mm-dd HH:MM
+save_loc = f"spotify-backup ({time.strftime('%Y-%m-%d')} {time.strftime('%H:%M')})"
+
+logging.basicConfig(level=20,
+                    datefmt="%I:%M:%S",
+                    format="[%(asctime)s] %(message)s")
 
 
-client_id = "fc84b0b659d64f568f72d0d6009ad965"
+# simple recursive y/n input with default
+def yesno(question, default=None):
+    ans = input(question).strip().lower()
 
-logging.basicConfig(level=20, datefmt="%I:%M:%S", format="[%(asctime)s] %(message)s")
+    if default is not None:
+        if ans == '':
+            if default == 'y':
+                return True
+            return False
+        elif ans not in ['y', 'n']:
+            print(f'{ans} is invalid, please try again...')
+            return yesno(question)
+        if ans == 'y':
+            return True
+    else:
+        if ans not in ['y', 'n']:
+            print(f'{ans} is invalid, please try again...')
+            return yesno(question)
+        if ans == 'y':
+            return True
+
+    return False
+
+
+# return formatted hh mm ss
+def timematter(x):
+    s = timedelta(seconds=x)
+
+    if s.days < 1:
+        if s.seconds <= 60 * 60:
+            out = f'{s.seconds//60}m {s.seconds - (s.seconds//60)*60}s'
+        else:
+            out = f'{s.seconds//(60*60)}h {int(s.seconds/60 - (s.seconds//3600)*60)}m {s.seconds - (s.seconds//60)*60}s'
+    else:
+        out = f'{s.days}d {s.seconds//(60*60)}h {int(s.seconds/60 - (s.seconds//3600)*60)}m {s.seconds - (s.seconds//60)*60}s'
+    return out
+
 
 class SpotifyAPI:
     # Requires an OAuth token.
@@ -151,43 +196,6 @@ class SpotifyAPI:
     class _Authorization(Exception):
         def __init__(self, access_token):
             self.access_token = access_token
-
-
-# simple recursive y/n input with default
-def yesno(question, default=None):
-    ans = input(question).strip().lower()
-
-    if default is not None:
-        if ans == '':
-            if default == 'y':
-                return True
-            return False
-        elif ans not in ['y', 'n']:
-            print(f'{ans} is invalid, please try again...')
-            return yesno(question)
-        if ans == 'y':
-            return True
-    else:
-        if ans not in ['y', 'n']:
-            print(f'{ans} is invalid, please try again...')
-            return yesno(question)
-        if ans == 'y':
-            return True
-
-    return False
-
-# return formatted hh mm ss
-def timematter(x):
-    s = timedelta(seconds=x)
-
-    if s.days < 1:
-        if s.seconds <= 60 * 60:
-            out = f'{s.seconds//60}m {s.seconds - (s.seconds//60)*60}s'
-        else:
-            out = f'{s.seconds//(60*60)}h {int(s.seconds/60 - (s.seconds//3600)*60)}m {s.seconds - (s.seconds//60)*60}s'
-    else:
-        out = f'{s.days}d {s.seconds//(60*60)}h {int(s.seconds/60 - (s.seconds//3600)*60)}m {s.seconds - (s.seconds//60)*60}s'
-    return out
 
 # save playlists to csv
 def save_playlist(filename, playlist_list):
@@ -443,58 +451,46 @@ def save_episode(filename, episode_list):
 
     file.close()
 
-
 # log into the Spotify API.
 spotify = SpotifyAPI.authorize(
-    # client_id from a spotify client app created in
-    # https://developer.spotify.com/dashboard/applications
-    # it has http://127.0.0.1:43019/redirect set as the redirect URI
-    client_id=client_id,
+    client_id=os.getenv('SPOTIFY_CLIENT_ID'),
     scope="playlist-read-private playlist-read-collaborative user-library-read user-follow-read",
 )
-
 
 # get the ID of the logged in user.
 logging.info('Loading user info...')
 me = spotify.get('me')
 logging.info(f"Logged in as {me['display_name']} ({me['id']})")
 
-
 # for playlists not owned by user
 save_foreign_playlists = yesno('Save tracks of playlists not owned by you (foreign)? [y/N]: ', 'n')
 
-
 # create needed dirs
 logging.info('Creating needed directories')
-os.makedirs('./done/Music/Playlists', exist_ok=True)
-os.makedirs('./done/Music/Playlists/User', exist_ok=True)
-os.makedirs('./done/Podcasts', exist_ok=True)
-
+os.makedirs(f'{save_loc}/Music/Playlists', exist_ok=True)
+os.makedirs(f'{save_loc}/Music/Playlists/User', exist_ok=True)
+os.makedirs(f'{save_loc}/Podcasts', exist_ok=True)
 
 # save liked songs
 logging.info('Loading liked songs...')
 liked_tracks = spotify.list(f"users/{me['id']}/tracks", {'limit': 50})
 logging.info('Saving liked songs')
-save_track('done/Music/Liked.csv', liked_tracks)
-
+save_track(f'{save_loc}/Music/Liked.csv', liked_tracks)
 
 # get all playlist data
 playlist_data = spotify.list(f"users/{me['id']}/playlists", {'limit': 50})
-
 
 # get user's playlist data
 logging.info("Loading user's playlists...")
 user_playlists = [playlist for playlist in playlist_data if playlist['owner']['id'] == me['id']]
 logging.info(f"Found {len(user_playlists)} user's playlists")
-save_playlist('done/Music/Playlists/UserPlaylists.csv', user_playlists)
-
+save_playlist(f'{save_loc}/Music/Playlists/UserPlaylists.csv', user_playlists)
 
 # get user's foreign playlist data
 logging.info("Loading user's foreign playlists...")
 foreign_playlists = [playlist for playlist in playlist_data if playlist['owner']['id'] != me['id']]
 logging.info(f"Found {len(foreign_playlists)} foreign playlists")
-save_playlist('done/Music/Playlists/ForeignPlaylists.csv', foreign_playlists)
-
+save_playlist(f'{save_loc}/Music/Playlists/ForeignPlaylists.csv', foreign_playlists)
 
 # saving user's playlist songs
 for playlist in user_playlists:
@@ -506,12 +502,11 @@ for playlist in user_playlists:
     logging.info(f"Loading user playlist: {name} ({playlist['tracks']['total']} songs)")
     playlist_tracks = spotify.list(playlist['tracks']['href'], {'limit': 100})
     logging.info(f"Saving {name}'s songs")
-    save_track(f"done/Music/Playlists/User/{name} - {playlist['id']}.csv", playlist_tracks)
-
+    save_track(f"{save_loc}/Music/Playlists/User/{name} - {playlist['id']}.csv", playlist_tracks)
 
 # check whether to save foreign playlist tracks
 if save_foreign_playlists:
-    os.makedirs('./done/Music/Playlists/Foreign', exist_ok=True)
+    os.makedirs(f'{save_loc}/Music/Playlists/Foreign', exist_ok=True)
 
     # saving foreign playlist songs
     for playlist in foreign_playlists:
@@ -523,32 +518,66 @@ if save_foreign_playlists:
         logging.info(f"Loading foreign playlist: {name} ({playlist['tracks']['total']} songs)")
         playlist_tracks = spotify.list(playlist['tracks']['href'], {'limit': 100})
         logging.info(f"Saving {name}'s songs")
-        save_track(f"done/Music/Playlists/Foreign/{name} - {playlist['id']}.csv", playlist_tracks)
-
+        save_track(f"{save_loc}/Music/Playlists/Foreign/{name} - {playlist['id']}.csv", playlist_tracks)
 
 # following artists data
 logging.info('Loading followed artists...')
 following_artist_data = spotify.list_artists('me/following', {'type': 'artist', 'limit': 50})
 logging.info(f'Found {len(following_artist_data)} artists')
-save_artist('done/Music/Artists.csv', following_artist_data)
-
+save_artist(f'{save_loc}/Music/Artists.csv', following_artist_data)
 
 # saved album data
 logging.info('Loading saved albums...')
 saved_album_data = spotify.list('me/albums', {'limit': 50})
 logging.info(f'Found {len(saved_album_data)} albums')
-save_album('done/Music/Albums.csv', saved_album_data)
-
+save_album(f'{save_loc}/Music/Albums.csv', saved_album_data)
 
 # saved podcast shows data
 logging.info('Loading saved podcast shows...')
 saved_podcast_data = spotify.list('me/shows', {'limit': 50})
 logging.info(f'Found {len(saved_podcast_data)} podcasts')
-save_podcast('done/Podcasts/Shows.csv', saved_podcast_data)
-
+save_podcast(f'{save_loc}/Podcasts/Shows.csv', saved_podcast_data)
 
 # saved podcast episode data
 logging.info('Loading saved podcast episodes...')
 saved_episode_data = spotify.list("me/episodes", {'limit': 50})
 logging.info('Saving episodes')
-save_episode('done/Podcasts/Episodes.csv', saved_episode_data)
+save_episode(f'{save_loc}/Podcasts/Episodes.csv', saved_episode_data)
+
+
+# upload files to b2
+b2_upload = yesno('Upload files to Backblaze? [Y/n]: ', 'y')
+
+if b2_upload:
+    keyID = os.environ['B2_KEY_ID']
+    appKey = os.environ['B2_APP_KEY']
+
+    # init b2
+    info = InMemoryAccountInfo()
+    b2_api = B2Api(info)
+    b2_api.authorize_account("production", keyID, appKey)
+
+    # setup upload info
+    b2_save_loc = f"Spotify/{save_loc}"
+    file_info = {'how', 'good-file'}
+    bucket = b2_api.get_bucket_by_name(os.environ['B2_BUCKET'])
+
+    logging.info(f'Uploading {save_loc} to {os.environ["B2_BUCKET"]}')
+    destination = f'b2://{os.environ["B2_BUCKET"]}/{b2_save_loc}'
+    source = parse_sync_folder(save_loc, b2_api)
+    destination = parse_sync_folder(destination, b2_api)
+
+    # init uploader
+    synchronizer = Synchronizer(max_workers=5)
+
+    # upload files
+    with SyncReport(sys.stdout, True) as report:
+        synchronizer.sync_folders(source_folder=source,
+                                  dest_folder=destination,
+                                  now_millis=int(round(time.time() * 1000)),
+                                  reporter=report)
+
+    logging.info(f'Successfully uploaded to {b2_save_loc}')
+    
+    if (os.environ["HEALTH_CHECK_URL"]):
+        requests.get(os.environ["HEALTH_CHECK_URL"])
