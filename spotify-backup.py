@@ -20,8 +20,12 @@ import ssl
 from dotenv import load_dotenv
 from b2sdk.v2 import *
 import requests
+import base64
 
 load_dotenv()
+
+if (os.environ["HEALTH_CHECK_URL"]):
+    requests.get(f"{os.environ['HEALTH_CHECK_URL']}/start")
 
 # filename with yyyy-mm-dd HH:MM
 save_loc = f"spotify-backup ({time.strftime('%Y-%m-%d')} {time.strftime('%H:%M')})"
@@ -146,6 +150,21 @@ class SpotifyAPI:
                 server.handle_request()
         except SpotifyAPI._Authorization as auth:
             return SpotifyAPI(auth.access_token)
+
+    @staticmethod
+    def generate(client_id, secret_id, refresh_token):
+        refresh_token_url = "https://accounts.spotify.com/api/token"
+        refresh_token_payload = {
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token
+        }
+        refresh_token_headers = {
+            "Authorization": "Basic " + base64.b64encode(
+                f"{client_id}:{secret_id}".encode()).decode()
+        }
+        r = requests.post(refresh_token_url, data=refresh_token_payload, headers=refresh_token_headers)
+
+        return SpotifyAPI(r.json()['access_token'])
 
     # The port that the local server listens on. Don't change this,
     # as Spotify only will redirect to certain predefined URLs.
@@ -452,10 +471,14 @@ def save_episode(filename, episode_list):
     file.close()
 
 # log into the Spotify API.
-spotify = SpotifyAPI.authorize(
-    client_id=os.getenv('SPOTIFY_CLIENT_ID'),
-    scope="playlist-read-private playlist-read-collaborative user-library-read user-follow-read",
-)
+if (os.getenv('SPOTIFY_REFRESH_TOKEN')):
+    print('something')
+    spotify = SpotifyAPI.generate(os.getenv('SPOTIFY_CLIENT_ID'), os.getenv('SPOTIFY_CLIENT_SECRET'), os.getenv('SPOTIFY_REFRESH_TOKEN'))
+else:
+    spotify = SpotifyAPI.authorize(
+        client_id=os.getenv('SPOTIFY_CLIENT_ID'),
+        scope="playlist-read-private playlist-read-collaborative user-library-read user-follow-read",
+    )
 
 # get the ID of the logged in user.
 logging.info('Loading user info...')
@@ -578,6 +601,6 @@ if b2_upload:
                                   reporter=report)
 
     logging.info(f'Successfully uploaded to {b2_save_loc}')
-    
+
     if (os.environ["HEALTH_CHECK_URL"]):
         requests.get(os.environ["HEALTH_CHECK_URL"])

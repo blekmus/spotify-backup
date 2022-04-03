@@ -1,0 +1,5 @@
+b2sdk==1.14.1
+certifi==2021.10.8
+Flask==2.1.1
+python-dotenv==0.20.0
+requests==2.27.1
