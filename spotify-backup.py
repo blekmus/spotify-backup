@@ -22,12 +22,21 @@ from b2sdk.v2 import *
 import requests
 import base64
 import argparse
+import shutil
 
 
 parser = argparse.ArgumentParser()
-parser.add_argument('-y', '--always-yes', action='store_true', help='Always answer yes to prompts')
+parser.add_argument('-y',
+                    '--always-yes',
+                    action='store_true',
+                    help='Always answer yes to prompts')
+parser.add_argument('-d',
+                    '--delete',
+                    action='store_true',
+                    help='Delete backup directory before finishing')
 args = parser.parse_args()
 always_yes = args.always_yes
+delete_backup = args.delete
 
 load_dotenv()
 
@@ -616,3 +625,7 @@ if b2_upload:
 
     if (os.environ["HEALTH_CHECK_URL"]):
         requests.get(os.environ["HEALTH_CHECK_URL"])
+
+
+if delete_backup:
+    shutil.rmtree(save_loc)
