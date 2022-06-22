@@ -33,7 +33,7 @@ parser.add_argument('-y',
 parser.add_argument('-d',
                     '--delete',
                     action='store_true',
-                    help='Delete backup directory before finishing')
+                    help='Cleanup/Delete local downloaded files before finishing')
 args = parser.parse_args()
 always_yes = args.always_yes
 delete_backup = args.delete
