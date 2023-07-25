@@ -1,5 +1,5 @@
 b2sdk==1.14.1
-certifi==2022.12.7
+certifi==2023.7.22
 Flask==2.3.2
 python-dotenv==0.20.0
 requests==2.31.0
