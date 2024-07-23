@@ -41,7 +41,7 @@ delete_backup = args.delete
 load_dotenv()
 
 if (os.environ["HEALTH_CHECK_URL"]):
-    requests.get(f"{os.environ['HEALTH_CHECK_URL']}/start")
+    start_time = time.time()
 
 # filename with yyyy-mm-dd HH:MM
 save_loc = f"spotify-backup ({time.strftime('%Y-%m-%d')} {time.strftime('%H:%M')})"
@@ -624,7 +624,8 @@ if b2_upload:
     logging.info(f'Successfully uploaded to {b2_save_loc}')
 
     if (os.environ["HEALTH_CHECK_URL"]):
-        requests.get(os.environ["HEALTH_CHECK_URL"])
+        elapsed_time = int((time.time() - start_time) * 1000)
+        requests.get(os.environ["HEALTH_CHECK_URL"] + str(elapsed_time))
 
 
 if delete_backup:
